@@ -1,14 +1,15 @@
 import sys
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QLineEdit, QPushButton, QVBoxLayout
+from functools import partial
 
-WINDOW_SIZE = 235
-DISPLAY_HEIGHT = 35
-BUTTON_SIZE = 40
+ERROR_MSG = 'ERROR'
+WINDOW_SIZE = 350
+DISPLAY_HEIGHT = 50
+BUTTON_SIZE = 60
 
-# create the class and the parameters surrounding the calculator GUI
+## implementing view, creating the class and the parameters surrounding the calculator GUI
 class PyCalcWindow(QMainWindow):
-    """PyCalc's main window (GUI or view)."""
 
     def __init__(self):
         super().__init__()
@@ -47,17 +48,71 @@ class PyCalcWindow(QMainWindow):
                 self.buttonMap[key] = QPushButton(key)
                 self.buttonMap[key].setFixedSize(BUTTON_SIZE, BUTTON_SIZE)
                 buttonsLayout.addWidget(self.buttonMap[key], row, col)
-                
+
         # embed grid layout into GUI
         self.generalLayout.addLayout(buttonsLayout)
 
+    # method to set and update display    
+    def setDisplayText(self, text):
+        self.display.setText(text)
+        self.display.setFocus()
 
-# create the instance to run, event loop
+    # getter method for input
+    def displayText(self):
+        return self.display.text()
+
+    # display clear
+    def clearDisplay(self):
+        self.setDisplayText("")
+
+## implementing model, function to evalute a math expression input as string
+def evaluateExpression(expression):
+    """Evaluate an expression (Model)."""
+    try:
+        result = str(eval(expression, {}, {}))
+    except Exception:
+        result = ERROR_MSG
+    return result
+
+## implement controller
+class PyCalc:
+
+    #init model and view then connect
+    def __init__(self, model, view):
+        self._evaluate = model
+        self._view = view
+        self._connectSignalsAndSlots()
+
+    # evalute math expression, set display as result
+    def _calculateResult(self):
+        result = self._evaluate(expression=self._view.displayText())
+        self._view.setDisplayText(result)
+
+    # build expression via concatenating display value with new values entered
+    def _buildExpression(self, subExpression):
+        if self._view.displayText() == ERROR_MSG:
+            self._view.clearDisplay()
+        expression = self._view.displayText() + subExpression
+        self._view.setDisplayText(expression)
+
+    # connect inputs/returns
+    def _connectSignalsAndSlots(self):
+        for keySymbol, button in self._view.buttonMap.items():
+            if keySymbol not in {"=", "C"}:
+                button.clicked.connect(
+                    partial(self._buildExpression, keySymbol)
+                )
+        self._view.buttonMap["="].clicked.connect(self._calculateResult)
+        self._view.display.returnPressed.connect(self._calculateResult)
+        self._view.buttonMap["C"].clicked.connect(self._view.clearDisplay)
+
+
+## create the instance to run, event loop
 def main():
-    """PyCalc's main function."""
     pycalcApp = QApplication([])
     pycalcWindow = PyCalcWindow()
     pycalcWindow.show()
+    PyCalc(model=evaluateExpression, view=pycalcWindow)
     sys.exit(pycalcApp.exec())
 
 # execute 
